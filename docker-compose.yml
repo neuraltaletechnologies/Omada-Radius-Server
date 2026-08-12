@@ -1,0 +1,31 @@
+services:
+
+  omada:
+    image: mbentley/omada-controller:latest
+    container_name: omada-controller
+    restart: unless-stopped
+
+    environment:
+      TZ: Africa/Dar_es_Salaam
+
+    volumes:
+      - omada-data:/opt/tplink/EAPController/data
+      - omada-logs:/opt/tplink/EAPController/logs
+
+    ports:
+      - "8043:8043"
+      - "8088:8088"
+      - "8843:8843"
+      - "29810:29810/udp"
+      - "29811:29811/tcp"
+      - "29812:29812/tcp"
+      - "29813:29813/tcp"
+      - "29814:29814/tcp"
+      - "29815:29815/tcp"
+      - "29816:29816/tcp"
+      - "29817:29817/tcp"
+      - "27001:27001/udp"
+
+volumes:
+  omada-data:
+  omada-logs:
