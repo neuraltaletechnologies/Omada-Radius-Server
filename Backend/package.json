@@ -1,0 +1,36 @@
+{
+  "name": "wifi-business-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Wi-Fi hotspot/voucher backend: Omada Controller, payment and SMS orchestration",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "omada:connect": "tsx src/scripts/omada-connectivity-test.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.0",
+    "pino": "^9.6.0",
+    "undici": "^6.21.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "pino-pretty": "^13.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

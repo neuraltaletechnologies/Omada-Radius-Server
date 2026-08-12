@@ -26,6 +26,54 @@ services:
       - "29817:29817/tcp"
       - "27001:27001/udp"
 
+    networks:
+      - hotspot
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: backend-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: wifi_business
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - hotspot
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wifi_business"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./Backend
+    container_name: backend-api
+    restart: unless-stopped
+    env_file:
+      - path: ./Backend/.env
+        required: false
+    environment:
+      # On the shared Docker network reach Omada by service name, not its IP.
+      OMADA_BASE_URL: https://omada:8043
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wifi_business
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hotspot
+
 volumes:
   omada-data:
   omada-logs:
+  postgres-data:
+
+networks:
+  hotspot:
+    driver: bridge
