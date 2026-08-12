@@ -1,0 +1,63 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<link rel="stylesheet" href="index.css" type="text/css" />
+<body class="portal">
+    <div class="logo-img">
+        <img class="logo" src="portalLogo_picture@2x.png">
+    </div>
+
+    <div class="oper-section-outer">
+        <div class="oper-section-inner">
+            <span id="oper-hint" style="color: red"></span>
+            <div id="hotspot-section">
+                <select id="hotspot-selector" class="oper-section-item"></select>
+            </div>
+            <form id="login-form">
+                <div id="input-voucher">
+                    <input id="voucherCode" class="oper-section-item input" name="voucherCode" type="text" placeholder="Voucher Code"/>
+                </div>
+                <div id="input-user">
+                    <input id="username" class="oper-section-item input" name="username" type="text" placeholder="Username"/>
+                </div>
+                <div id="input-password" class="user-input">
+                    <input id="password" class="oper-section-item input" name="password" type="password"  placeholder="Password"/>
+                </div>
+                <div id="input-simple">
+                    <input id="simplePassword" class="password oper-section-item" name="simplePassword" type="password" placeholder="Password"/>
+                </div>
+                <div id="input-phone-num">
+                    <span class="add">+</span><input id="country-code" class="input"><input id="phone-number" class="input" name="phone-number" type="text" placeholder="Phone Number"/>
+                </div>
+                <div id="input-verify-code">
+                    <input id="verify-code" class="input" name="verify-code" type="text" placeholder="Verification Code"/><button id="get-code" class="button">Get Code</button>
+                </div>
+                <input name="clientMac" id="cMac" style="display:none"/>
+                <input name="radiusSvrIp" id="radiusServerIp" style="display:none"/>
+            </form>
+            <div id="button-area">
+                <button id="button-login" class="button oper-section-item">Log In</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="form-auth-msg">
+      <div id="form-auth-outer">
+          <div id="form-auth-close"></div>
+          <div id="form-auth-inner">
+              <div id="form-auth-header">
+                  <div id="form-auth-title"></div>
+                  <div id="form-auth-note"></div>
+              </div>
+            <div id="form-auth-content"></div>
+              <div id="form-auth-footer">
+                  <a id="form-auth-submit" href="javascript:void(0);">Submit</a>
+              </div>
+          </div>
+      </div>
+    </div>
+
+    <script src="jquery.min.js"></script>
+</body>
+<script src="index.js"></script>
+
+

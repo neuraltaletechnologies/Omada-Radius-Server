@@ -1,0 +1,736 @@
+# Project Context: Local Wi-Fi Voucher, Payment & Captive Portal Platform
+
+You are helping me design and develop a **commercial Wi-Fi hotspot/voucher platform** that I intend to eventually turn into a service that can be deployed for multiple businesses.
+
+I am a software developer, so you can communicate with me at a technical/developer level. Do not oversimplify technical concepts. I want a robust, production-oriented architecture rather than the easiest possible implementation.
+
+## 1. Current Hardware
+
+My current network hardware is:
+
+* Raspberry Pi 4
+* Raspberry Pi OS 64-bit / ARM64
+* TP-Link ER605 VPN Router
+* TP-Link EAP225 Access Point
+* ZLT X17U ODU/IDU Internet equipment
+* ZLT W304VA PRO is also available as an additional Wi-Fi access point
+* Omada Controller will run on the Raspberry Pi
+
+The intended Internet path is:
+
+Internet/ISP
+→ ZLT X17U ODU
+→ TP-Link ER605 WAN
+→ ER605 LAN
+→ TP-Link EAP225 / other access points
+→ Customers
+
+The Raspberry Pi is connected to the same LAN and will run the local services.
+
+## 2. Omada Controller
+
+I want to run the Omada Software Controller inside Docker on the Raspberry Pi.
+
+The Raspberry Pi is ARM64, so **do not assume that x86_64/amd64 Omada packages will work**.
+
+I am not interested in installing the Omada `.deb` or `.tar.gz` directly on the Raspberry Pi if an appropriate ARM64 Docker image is available.
+
+The controller should be isolated in its own Docker container.
+
+The Omada Controller manages:
+
+* ER605
+* EAP225
+* Wi-Fi networks
+* Captive portal
+* Client authentication
+* Voucher functionality
+* Network access control
+
+Use a **specific pinned Omada Controller version**, not `latest`.
+
+Before implementing anything that depends on the Omada API, verify that the chosen controller version actually supports the required External Portal/API functionality.
+
+Do not invent undocumented Omada APIs.
+
+## 3. Main Business Idea
+
+I want to sell Internet access through a captive portal.
+
+A customer connects to my Wi-Fi.
+
+The customer is redirected to a custom captive portal.
+
+The portal displays Internet packages such as:
+
+* 500 TSh → 3 hours
+* 1,000 TSh → 24 hours
+* 6,000 TSh → 7 days
+* 16,000 TSh → 30 days
+
+The package system must NOT be hard-coded into the frontend.
+
+Packages should exist in the database and be configurable from an administrator dashboard.
+
+For example:
+
+```text
+Package
+- ID
+- Name
+- Price
+- Duration
+- Download speed
+- Upload speed
+- Data limit (optional)
+- Active/inactive
+- Omada profile/voucher configuration
+```
+
+## 4. Captive Portal
+
+I want a completely customized captive portal.
+
+I do NOT want to modify Omada's internal UI unnecessarily.
+
+The preferred architecture is:
+
+Customer
+→ Omada captive portal interception
+→ External/custom portal
+→ My application
+
+The custom portal should be a modern responsive web application.
+
+It should work well on:
+
+* Android phones
+* iPhones
+* cheap smartphones
+* tablets
+* laptops
+
+The first page should allow the customer to select a package.
+
+Example:
+
+```text
+WELCOME
+
+Choose your Internet package
+
+500 TSh
+3 Hours
+[BUY NOW]
+
+1,000 TSh
+24 Hours
+[BUY NOW]
+
+6,000 TSh
+7 Days
+[BUY NOW]
+
+16,000 TSh
+30 Days
+[BUY NOW]
+```
+
+After selecting a package:
+
+```text
+Enter mobile number
+
++255 __________
+
+[CONTINUE]
+```
+
+The customer's phone number will be used to initiate a mobile-money payment.
+
+## 5. Payment Flow
+
+The payment system must use a real mobile-money/payment gateway capable of sending a push payment request to the customer's phone.
+
+The flow should be:
+
+Customer selects package
+→ enters phone number
+→ backend creates transaction
+→ payment provider sends push request
+→ customer enters mobile-money PIN
+→ payment provider processes payment
+→ payment provider sends webhook/callback
+→ backend verifies payment
+→ transaction becomes SUCCESS
+→ Internet access is provisioned
+
+NEVER trust the frontend to report that a payment was successful.
+
+The backend must verify payment through the payment provider.
+
+Payment transactions must have:
+
+* unique transaction ID
+* provider transaction ID
+* amount
+* phone number
+* package ID
+* client MAC
+* client IP
+* Omada information
+* status
+* timestamps
+* webhook event information
+
+Payment processing must be idempotent.
+
+A duplicate webhook must never create two vouchers or two Internet sessions.
+
+## 6. Omada Client Information
+
+When the customer is redirected to the external portal, I want to preserve the information Omada provides about the connecting client.
+
+Potential information includes:
+
+* client MAC
+* client IP
+* AP MAC
+* gateway MAC
+* SSID
+* VLAN
+* original URL
+* controller/site information
+
+The transaction should associate the payment with the specific Wi-Fi client.
+
+Example:
+
+```text
+Payment
+    ↓
+Customer phone
+    ↓
+Package
+    ↓
+Client MAC
+    ↓
+Omada authentication
+```
+
+This prevents one person from paying while another device receives the Internet access.
+
+## 7. Voucher / Authentication
+
+After successful payment, the backend must provision Internet access through Omada.
+
+There are two possible approaches:
+
+### Approach A
+
+Use a pre-generated pool of Omada vouchers.
+
+### Approach B
+
+Generate/request the appropriate voucher dynamically after successful payment.
+
+Determine which approach is technically safest and most reliable for the selected Omada Controller version.
+
+Do not assume an API exists.
+
+Inspect the actual supported Omada API/documentation before implementing.
+
+The final goal is:
+
+Payment SUCCESS
+→ voucher/authentication provisioned
+→ customer authenticated through Omada
+→ Internet access granted
+
+Ideally, the customer should NOT have to manually type a voucher.
+
+The portal should automatically authenticate the customer after payment where Omada's supported external portal flow allows this.
+
+The voucher/code can still be sent by SMS as a backup/receipt.
+
+## 8. SMS
+
+After payment and successful provisioning, the system should send an SMS.
+
+Example:
+
+```text
+Internet Payment Successful
+
+Package: 3 Hours
+Amount: TSh 500
+
+Your Wi-Fi access code:
+ABC123
+
+Your Internet access has been activated.
+
+Thank you.
+```
+
+SMS should be handled by a dedicated backend service.
+
+The SMS provider must be configurable.
+
+SMS delivery status should be stored.
+
+Example:
+
+```text
+sms_messages
+
+id
+payment_id
+phone
+message
+provider
+provider_message_id
+status
+created_at
+sent_at
+```
+
+## 9. Everything Should Run Locally
+
+I initially considered Cloudflare Pages/Workers, but for this project I now want the core system to run **locally on the Raspberry Pi**.
+
+The target architecture is:
+
+```text
+Raspberry Pi 4 ARM64
+│
+└── Docker
+    │
+    ├── Omada Controller
+    ├── Captive Portal
+    ├── Backend API
+    ├── Payment Service
+    ├── SMS Service
+    ├── Database
+    └── Admin Dashboard
+```
+
+The Internet provider/payment provider/SMS provider will naturally remain external services.
+
+The application itself should remain hosted locally.
+
+If an external payment provider needs to send webhooks to my system, investigate secure solutions such as:
+
+* public IP + secure reverse proxy
+* VPN
+* Cloudflare Tunnel
+* secure VPS relay
+
+Do NOT expose the Raspberry Pi unnecessarily.
+
+## 10. Recommended Docker Architecture
+
+I want separate services rather than putting the entire application into one container.
+
+Possible structure:
+
+```text
+docker-compose.yml
+
+services:
+
+  omada:
+    Omada Controller
+
+  backend:
+    Main REST API
+
+  portal:
+    Captive Portal
+
+  admin:
+    Administration dashboard
+
+  payment:
+    Payment integration service
+
+  sms:
+    SMS integration service
+
+  postgres:
+    PostgreSQL database
+
+  redis:
+    Optional caching/queue service
+```
+
+Evaluate whether all of these services are actually necessary.
+
+Do not introduce unnecessary complexity.
+
+For the first MVP, a smaller architecture is acceptable:
+
+```text
+omada
+backend
+frontend
+postgres
+```
+
+Payment and SMS integrations can initially live inside the backend if that results in a cleaner architecture.
+
+## 11. Technology Preference
+
+I am a software developer and am comfortable with modern web development.
+
+Preferred technologies:
+
+### Frontend
+
+* Next.js
+* React
+* TypeScript
+* Tailwind CSS
+
+### Backend
+
+Prefer:
+
+* Node.js
+* TypeScript
+* Fastify or NestJS/Express depending on architectural requirements
+
+### Database
+
+Prefer:
+
+* PostgreSQL
+
+### Infrastructure
+
+* Docker
+* Docker Compose
+* Raspberry Pi 4 ARM64
+* Linux
+
+Do not choose technology simply because it is popular.
+
+Choose based on:
+
+* reliability
+* maintainability
+* ARM64 compatibility
+* performance
+* security
+* ease of deployment
+* ability to scale to multiple hotspot installations
+
+## 12. Database Architecture
+
+Design the database so the system can eventually become a multi-tenant SaaS.
+
+Potential tables:
+
+```text
+tenants
+users
+roles
+hotspots
+routers
+access_points
+sites
+packages
+customers
+payments
+payment_events
+vouchers
+sessions
+sms_messages
+audit_logs
+settings
+```
+
+Every business/hotspot should be isolated by `tenant_id`.
+
+Do not design the database as if there will only ever be one hotspot.
+
+## 13. Future SaaS Goal
+
+Eventually I want other businesses to use this system.
+
+For example:
+
+```text
+My Platform
+
+Tenant A
+- Hotel
+
+Tenant B
+- Restaurant
+
+Tenant C
+- Gaming Cafe
+
+Tenant D
+- Shopping Centre
+```
+
+Each tenant should have:
+
+* their own packages
+* their own prices
+* their own customers
+* their own payments
+* their own vouchers
+* their own Wi-Fi sites
+* their own administrators
+* their own SMS configuration
+* their own branding
+
+I should be able to manage all tenants as the platform owner.
+
+## 14. Roles
+
+At minimum:
+
+### Super Admin
+
+Me/platform owner.
+
+Can:
+
+* create tenants
+* manage all hotspots
+* manage controllers
+* view payments
+* configure payment providers
+* configure SMS
+* manage packages
+* view system health
+
+### Tenant Owner
+
+Business owner.
+
+Can:
+
+* manage their hotspot
+* manage packages
+* view revenue
+* view customers
+* view active users
+* manage staff
+
+### Manager
+
+Can:
+
+* view customers
+* view transactions
+* manage basic hotspot operations
+
+## 15. Security Requirements
+
+Treat this as a real commercial application.
+
+Implement:
+
+* password hashing
+* JWT/session authentication
+* role-based access control
+* tenant isolation
+* HTTPS where traffic leaves the local network
+* API authentication
+* rate limiting
+* input validation
+* SQL injection protection
+* CSRF protection where applicable
+* secure secrets management
+* payment webhook signature verification
+* idempotency
+* audit logging
+* database backups
+
+Never expose:
+
+* payment API credentials
+* SMS credentials
+* Omada credentials
+* database credentials
+
+to the frontend.
+
+## 16. Network Architecture
+
+Current intended network:
+
+```text
+Internet
+   │
+ZLT X17U ODU
+   │
+   ▼
+TP-Link ER605 WAN
+   │
+   ▼
+ER605 LAN
+   │
+   ├── EAP225
+   │
+   ├── Raspberry Pi
+   │
+   └── Other APs
+```
+
+The ER605 should be the main DHCP/router/firewall.
+
+Omada should manage the ER605/EAP225 where supported.
+
+The Raspberry Pi should have a predictable LAN address.
+
+Prefer a DHCP reservation or static IP.
+
+Example:
+
+```text
+Raspberry Pi:
+192.168.10.x
+```
+
+Do not create IP conflicts with the ER605 or ZLT.
+
+## 17. ZLT W304VA PRO
+
+I also have a ZLT W304VA PRO.
+
+It currently has a management IP such as:
+
+```text
+192.168.10.1
+```
+
+The exact network configuration must be planned carefully to avoid conflicts with the ER605.
+
+The ZLT should NOT accidentally become the main DHCP server if the ER605 is supposed to control the LAN.
+
+If it is used as an AP, configure it appropriately and avoid overlapping DHCP/NAT functionality.
+
+For the commercial hotspot, prefer Omada-managed EAP access points where possible because they integrate more cleanly with Omada's captive portal and client management.
+
+## 18. Development Philosophy
+
+I want a **robust architecture**, not merely the easiest tutorial implementation.
+
+Before writing code:
+
+1. Understand the actual Omada Controller version.
+2. Verify the supported External Portal/API.
+3. Verify ARM64 compatibility.
+4. Verify Docker compatibility.
+5. Design the network flow.
+6. Design the authentication flow.
+7. Design the payment state machine.
+8. Design the database.
+9. Design security.
+10. Then implement.
+
+Do not invent Omada API endpoints.
+
+Do not assume that an endpoint from an old Omada version still exists.
+
+If documentation is unavailable, clearly identify the uncertainty and propose a test to verify it.
+
+## 19. Payment State Machine
+
+Use explicit payment states, for example:
+
+```text
+CREATED
+PENDING
+PAYMENT_REQUESTED
+PROCESSING
+SUCCESS
+FAILED
+EXPIRED
+CANCELLED
+```
+
+Only:
+
+```text
+SUCCESS
+```
+
+should trigger Internet provisioning.
+
+Provisioning should have its own state:
+
+```text
+NOT_PROVISIONED
+PROVISIONING
+PROVISIONED
+PROVISION_FAILED
+```
+
+This allows payment and network provisioning to be retried independently.
+
+## 20. Important Business Rule
+
+The customer should not receive Internet access merely because the payment request was created.
+
+Correct flow:
+
+```text
+Payment request created
+        ↓
+Customer receives push
+        ↓
+Customer enters PIN
+        ↓
+Provider confirms payment
+        ↓
+Webhook received
+        ↓
+Webhook verified
+        ↓
+Payment SUCCESS
+        ↓
+Provision Internet
+        ↓
+Omada authentication
+        ↓
+Internet active
+        ↓
+SMS sent
+```
+
+## 21. What I Want From You
+
+Act as a senior network/software architect and developer.
+
+Do NOT immediately start writing random code.
+
+First:
+
+1. Analyze the architecture.
+2. Identify technical risks.
+3. Identify Omada-specific requirements.
+4. Identify what must be tested on the actual controller.
+5. Recommend the exact Omada Controller version and ARM64-compatible Docker image.
+6. Design the Docker Compose architecture.
+7. Design the database schema.
+8. Design the external captive portal flow.
+9. Design the payment state machine.
+10. Design the Omada authentication/voucher flow.
+11. Design the SMS flow.
+12. Explain how all components communicate.
+13. Then propose an implementation roadmap.
+
+The final system should be capable of starting as a single local hotspot installation and later becoming a multi-tenant commercial Wi-Fi management platform.
+
+Prioritize:
+
+**Correctness → Security → Reliability → Maintainability → Scalability → Ease of development.**
+
+Do not sacrifice the architecture merely to make the first prototype easier.
