@@ -1,29 +1,47 @@
 /**
- * SINGLE SOURCE OF TRUTH for Omada endpoint paths.
+ * SINGLE SOURCE OF TRUTH for Omada endpoint paths (Omada Controller v5.15.x).
  *
- * IMPORTANT (Rule: never invent Omada API endpoints):
- * The paths below with a `VERIFIED` tag have been checked against the documented
- * Omada Open API (OAuth2 client-credentials, base path `/api/v1`). The token and
- * sites endpoints confirm the authentication + "simple authenticated request"
- * milestone.
+ * These paths were extracted from the ONLINE API DOCUMENTATION of the installed
+ * controller, available at https://{controller}/v3/api-docs (Swagger/OpenAPI
+ * "Omada Open API" v0.1). They are authoritative for THIS controller version.
  *
- * Voucher endpoints are intentionally left OUT until they are confirmed against
- * the Online API Documentation published by the installed controller. Adjust the
- * strings here (and only here) once verified; no Omada path is hard-coded
- * elsewhere in the application.
+ * Structure (verified):
+ *   - API base path  : /openapi/v1
+ *   - omadacId       : a PATH segment on authenticated calls:
+ *                        /openapi/v1/{omadacId}/...
+ *                      a QUERY parameter on the OAuth2 token endpoint:
+ *                        POST /openapi/v1/oauth2/token?omadacId={omadacId}
+ *   - Auth           : OAuth2 client-credentials (client_id / client_secret),
+ *                      presented as `Authorization: Bearer <accessToken>`.
+ *
+ * Voucher endpoints follow the Omada "voucher-group" model. The paths below are
+ * verified; the exact request/response schemas for creating vouchers/groups are
+ * still to be confirmed from the spec before Phase 4 is implemented.
  */
 export const OMADA_PATHS = {
-  /** OAuth2 client-credentials token endpoint (VERIFIED against Omada Open API docs). */
-  token: '/api/v1/auth/oauth2/token',
+  /** OAuth2 client-credentials token endpoint (VERIFIED). needs ?omadacId=. */
+  token: '/openapi/v1/oauth2/token',
 
-  /** List sites - used as the "simple authenticated request" connectivity probe (VERIFIED). */
-  sites: '/api/v1/sites',
+  /** List all sites (VERIFIED) - used as the "simple authenticated request" probe. */
+  sites: (omadacId: string) => `/openapi/v1/${encodeURIComponent(omadacId)}/sites`,
 
-  /** List clients on a site (VERIFIED path shape; used for client service). */
-  siteClients: (siteId: string) => `/api/v1/sites/${encodeURIComponent(siteId)}/clients`,
+  /** Get a single site (VERIFIED). */
+  site: (omadacId: string, siteId: string) =>
+    `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}`,
 
-  // Voucher endpoints - PENDING verification against installed controller docs.
-  // Expected shape (DO NOT rely on until confirmed):
-  //   siteVouchers:        (siteId) => `/api/v1/sites/${siteId}/vouchers`,
-  //   siteVoucher:         (siteId, voucherId) => `/api/v1/sites/${siteId}/vouchers/${voucherId}`,
+  /** List clients on a site (VERIFIED). */
+  siteClients: (omadacId: string, siteId: string) =>
+    `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/clients`,
+
+  /** Hotspot client auth (VERIFIED path; used for the portal authentication flow). */
+  hotspotClientAuth: (omadacId: string, siteId: string, clientMac: string) =>
+    `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/hotspot/clients/${encodeURIComponent(clientMac)}/auth`,
+
+  /** Hotspot voucher groups (VERIFIED paths; schemas pending confirmation). */
+  voucherGroups: (omadacId: string, siteId: string) =>
+    `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/hotspot/voucher-groups`,
+  voucherGroup: (omadacId: string, siteId: string, groupId: string) =>
+    `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/hotspot/voucher-groups/${encodeURIComponent(groupId)}`,
+  vouchers: (omadacId: string, siteId: string, voucherId?: string) =>
+    `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/hotspot/vouchers${voucherId ? `/${encodeURIComponent(voucherId)}` : ''}`,
 } as const;

@@ -34,7 +34,8 @@ export async function startOmadaMock(opts: {
     const url = new URL(req.url ?? '/', 'http://localhost');
     const omadacId = url.searchParams.get('omadacId');
 
-    if (req.method === 'POST' && url.pathname === '/api/v1/auth/oauth2/token') {
+    // Token endpoint: /openapi/v1/oauth2/token with omadacId as a query param.
+    if (req.method === 'POST' && url.pathname === '/openapi/v1/oauth2/token') {
       calls.token += 1;
       let body = '';
       req.on('data', (c) => (body += c));
@@ -75,7 +76,8 @@ export async function startOmadaMock(opts: {
       return;
     }
 
-    if (req.method === 'GET' && url.pathname === '/api/v1/sites') {
+    // Sites listing: /openapi/v1/{omadacId}/sites (omadacId as PATH segment).
+    if (req.method === 'GET' && url.pathname === '/openapi/v1/omada-1/sites') {
       calls.sites += 1;
       const auth = req.headers.authorization ?? '';
       const token = auth.replace(/^Bearer\s+/i, '');

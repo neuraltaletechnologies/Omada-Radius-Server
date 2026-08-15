@@ -27,8 +27,9 @@ interface TokenResponse {
 
 /**
  * Thin HTTP layer over the Omada Open API. Owns TLS handling, timeout,
- * envelope parsing, error typing, and the `omadacId` query parameter that the
- * Omada Open API requires on every request.
+ * envelope parsing, and error typing. `omadacId` is a PATH segment on
+ * authenticated calls (provide fully-built paths from OMADA_PATHS); the token
+ * endpoint takes it as a QUERY parameter (see requestToken).
  *
  * Secrets (clientSecret, accessToken) are never included in logged data.
  */
@@ -46,14 +47,18 @@ export class OmadaHttp {
     });
   }
 
-  /** The `omadacId` is appended to every request, including the token request. */
+  /**
+   * Build a URL for a path. `omadacId` is embedded in the PATH by the caller
+   * (OMADA_PATHS) for authenticated calls, so it is intentionally NOT added as
+   * a default query parameter here. The token endpoint adds `omadacId` as a
+   * query parameter explicitly (see requestToken).
+   */
   private buildUrl(
     path: string,
     query?: HttpRequestOptions['query'],
   ): URL {
     const url = new URL(this.cfg.baseUrl);
     url.pathname = `${url.pathname.replace(/\/+$/, '')}${path}`;
-    url.searchParams.set('omadacId', this.cfg.omadaId);
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== undefined) url.searchParams.set(key, String(value));
     }
@@ -62,9 +67,11 @@ export class OmadaHttp {
 
   /**
    * Request an access token via the OAuth2 client-credentials grant.
+   * The `omadacId` is required here as a QUERY parameter.
    */
   async requestToken(): Promise<TokenResponse> {
     const url = this.buildUrl(OMADA_PATHS.token);
+    url.searchParams.set('omadacId', this.cfg.omadaId);
     const form = new URLSearchParams({
       grant_type: 'client_credentials',
       client_id: this.cfg.clientId,

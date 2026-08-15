@@ -62,26 +62,31 @@ verified SUCCESS** (with duplicate-webhook / idempotency guards).
 
 ## Omada API verification checklist (do this against the running controller)
 
-Before implementing voucher creation, confirm each item against the **Online API
-Documentation** exposed by the installed controller (Settings → Open API →
-documentation, or the controller's published OpenAPI spec). Record the controller
-version too.
+Endpoints come from the controller's own Online API Documentation
+(`https://{controller}:8043/v3/api-docs`, "Omada Open API" v0.1, Controller **v5.15.24.19**).
+Base path: **`/openapi/v1`**. `omadacId` is a PATH segment on authenticated calls
+and a QUERY param on the token endpoint.
 
-- [ ] Controller version: ____________
-- [ ] Open API application: `WiFi Business Backend` (Mode: Client) with Client ID / Secret / Omada ID
-- [ ] Token endpoint & body (expected `POST /api/v1/auth/oauth2/token?omadacId=...` with
-      `grant_type=client_credentials`, `client_id`, `client_secret`) — VERIFY
-- [ ] Do authenticated requests need `omadacId` as a query param on every call? — VERIFY
-- [ ] Sites listing endpoint for the connectivity probe — VERIFIED here, re-confirm
-- [ ] Voucher **create** endpoint + request schema (profile/quota/expiry fields) — PENDING
-- [ ] Voucher **list** endpoint + pagination envelope — PENDING
-- [ ] Voucher **get** endpoint — PENDING
-- [ ] Voucher **delete** endpoint — PENDING
-- [ ] Client **authentication endpoint** for the external-portal flow — PENDING
-- [ ] Client **MAC binding** requirements for vouchers — PENDING
-- [ ] **Site ID** requirements for voucher + client calls — PENDING
+Verified paths (already reflected in `src/modules/omada/omada.paths.ts`):
+- [x] Token: `POST /openapi/v1/oauth2/token?omadacId=...`
+      (`grant_type=client_credentials`, `client_id`, `client_secret`)
+- [x] Sites listing: `GET /openapi/v1/{omadacId}/sites`
+- [x] Site clients: `GET /openapi/v1/{omadacId}/sites/{siteId}/clients`
+- [x] Hotspot client auth (external-portal flow): `.../hotspot/clients/{clientMac}/auth` / `unauth`
+- [x] Voucher-group model paths: `.../hotspot/voucher-groups` (+ sub-paths), `.../hotspot/vouchers/{id}`
+- [ ] Voucher CREATE request schema (how a group/voucher is generated: profile,
+      duration/expiry, quantity) — confirm from v3/api-docs before Phase 4
+- [ ] Voucher **get**/**list**/**delete** schemas — confirm from v3/api-docs
+- [ ] Client **MAC binding** requirements for vouchers — confirm
+- [ ] **Site ID** value/style (siteId is a path segment) — path confirmed, confirm values
 
-Update `src/modules/omada/omada.paths.ts` with confirmed paths. Do **not** guess.
+### Live auth blocker observed
+`POST /openapi/v1/oauth2/token?omadacId=b727c2c...` (the OMADA_ID from the old root
+`.env`) returns `{"errorCode":-7131,"msg":"Controller ID not exist."}` — the path is
+correct, so the **`omadacId` must be the value the Open API application was registered
+with** (Settings → Open API → app → Omada ID), which may differ from the controller's
+UI omadacId. Resolve `OMADA_ID` accordingly (and confirm the app is enabled), then re-run
+`npm run omada:connect`.
 
 Proving the milestone: `npm run omada:connect` (or the admin HTTP route) prints
 `authenticated and listed N site(s)`.

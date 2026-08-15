@@ -77,14 +77,34 @@ curl http://localhost:3000/health
 
 ## Omada endpoint verification (IMPORTANT)
 
-Per the project rule (never invent Omada API endpoints), only two paths are used right now, both from the documented Omada Open API:
+Endpoints are sourced from the **Online API Documentation of the installed controller**
+(`https://{controller}:8043/v3/api-docs`, "Omada Open API" v0.1, Controller **v5.15.24.19**).
+All Omada paths live in one file: `src/modules/omada/omada.paths.ts`.
 
-- Token: `POST /api/v1/auth/oauth2/token?omadacId=...` (OAuth2 client-credentials)
-- Sites (connectivity probe): `GET /api/v1/sites`
+Verified structure:
+- Base path: `/openapi/v1`
+- Token: `POST /openapi/v1/oauth2/token?omadacId={omadaId}` (OAuth2 client-credentials)
+- Sites: `GET /openapi/v1/{omadacId}/sites`
+- Site clients: `GET /openapi/v1/{omadacId}/sites/{siteId}/clients`
+- Hotspot client auth (external-portal flow): `.../hotspot/clients/{clientMac}/auth`
+- Vouchers use the **voucher-group** model: `.../hotspot/voucher-groups` (+ sub-paths)
 
-**All Omada paths live in one file:** `src/modules/omada/omada.paths.ts`.
+> Note: `omadacId` is a **PATH** segment on authenticated calls and a **QUERY** param
+> on the token endpoint.
 
-Voucher creation/list/get/delete **must be confirmed** against the **Online API Documentation of the installed controller** before implementing. See `docs/ARCHITECTURE.md` for the exact verification checklist.
+### Current live-verification blocker
+When authenticating, the controller answered the token endpoint with
+`{"errorCode":-7131,"msg":"Controller ID not exist."}` for the `OMADA_ID`
+(`b727c2c...`) recorded in the old root `.env`. The endpoint path is correct
+(confirmed), so the blocker is that the **`omadacId` value must be the one the Open API
+application was registered with**, which can differ from the controller's UI omadacId.
+
+To complete the milestone (`npm run omada:connect` → `authenticated and listed N site(s)`):
+1. Open the controller UI → **Settings → Open API**.
+2. Select the **WiFi Business Backend** app; copy the exact **Omada ID** shown there
+   into `OMADA_ID` (and confirm the Client ID/Secret match).
+3. Ensure the Open API feature/app is **enabled**.
+4. Re-run `npm run omada:connect`.
 
 ## Docker
 

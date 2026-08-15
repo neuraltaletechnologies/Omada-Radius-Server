@@ -61,7 +61,7 @@ export class OmadaClient {
    */
   async getSites(): Promise<OmadaSite[]> {
     const result = await this.authedRequest<OmadaSite[] | { list: OmadaSite[] }>(
-      OMADA_PATHS.sites,
+      OMADA_PATHS.sites(this.cfg.omadaId),
     );
     return this.normalizeList(result);
   }
@@ -69,7 +69,7 @@ export class OmadaClient {
   /** List clients connected to a given site. */
   async getClients(siteId: string): Promise<unknown[]> {
     const result = await this.authedRequest<unknown[] | { list: unknown[] }>(
-      OMADA_PATHS.siteClients(siteId),
+      OMADA_PATHS.siteClients(this.cfg.omadaId, siteId),
     );
     return this.normalizeList(result);
   }
