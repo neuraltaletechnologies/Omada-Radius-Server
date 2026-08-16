@@ -6,6 +6,7 @@ import { logger } from './lib/logger.js';
 import { AppError } from './lib/errors.js';
 import { healthRoutes } from './routes/health.js';
 import { omadaRoutes } from './routes/omada.js';
+import { catalogRoutes } from './routes/catalog.js';
 
 /**
  * Build (but do not start) the Fastify application - useful for tests and the
@@ -60,6 +61,7 @@ export function buildApp(): FastifyInstance {
 
   void app.register(healthRoutes);
   void app.register(omadaRoutes);
+  void app.register(catalogRoutes);
 
   setErrorHandler(app);
 

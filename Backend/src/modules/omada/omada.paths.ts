@@ -33,6 +33,16 @@ export const OMADA_PATHS = {
   siteClients: (omadacId: string, siteId: string) =>
     `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/clients`,
 
+  /** Single client (VERIFIED). */
+  client: (omadacId: string, siteId: string, clientMac: string) =>
+    `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/clients/${encodeURIComponent(clientMac)}`,
+
+  /** Block / unblock a client (VERIFIED). */
+  clientBlock: (omadacId: string, siteId: string, clientMac: string) =>
+    `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/clients/${encodeURIComponent(clientMac)}/block`,
+  clientUnblock: (omadacId: string, siteId: string, clientMac: string) =>
+    `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/clients/${encodeURIComponent(clientMac)}/unblock`,
+
   /** Hotspot client auth (VERIFIED path; used for the portal authentication flow). */
   hotspotClientAuth: (omadacId: string, siteId: string, clientMac: string) =>
     `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/hotspot/clients/${encodeURIComponent(clientMac)}/auth`,

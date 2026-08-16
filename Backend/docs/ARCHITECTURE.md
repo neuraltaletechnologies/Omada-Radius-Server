@@ -46,9 +46,9 @@ verified SUCCESS** (with duplicate-webhook / idempotency guards).
 ## Milestone roadmap
 
 1. ✅ Project setup (TS, Fastify, Docker, Postgres scaffold, env)
-2. **Database schema & migrations** (Prisma) — next
-3. ✅ Omada API client: auth + token + connectivity probe
-4. Omada site/client/voucher services (voucher endpoints to be verified)
+2. ✅ Database schema & migrations (Prisma), package seed, catalog API (`/api/packages`, `/ready`)
+3. ✅ Omada API client: auth + token + connectivity probe (paths verified against `/v3/api-docs`)
+4. Omada site/client/voucher services (voucher schemas to be confirmed from `/v3/api-docs`) — next
 5. Fake payment provider
 6. Payment state machine
 7. Voucher provisioning after verified payment

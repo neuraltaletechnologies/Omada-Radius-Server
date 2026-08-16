@@ -13,7 +13,7 @@ describe('parseEnv', () => {
   it('accepts a valid minimum config with defaults', () => {
     const env = parseEnv({ ...required });
     expect(env.PORT).toBe(3000);
-    expect(env.HOST).toBe('0.0.0.0');
+    expect(env.HOST).toBe('localhost');
     expect(env.NODE_ENV).toBe('development');
     expect(env.OMADA_TLS_REJECT_UNAUTHORIZED).toBe(false);
     expect(env.OMADA_MODE).toBe('real');

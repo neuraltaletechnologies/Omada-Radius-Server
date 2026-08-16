@@ -12,7 +12,7 @@ export class OmadaSiteService {
     private readonly logger: Logger,
   ) {}
 
-  /** List all sites the Open API application can see. */
+  /** List all sites the Open API application can see (VERIFIED endpoint). */
   async listSites(): Promise<OmadaSite[]> {
     const sites = await this.client.getSites();
     this.logger.info(
@@ -20,5 +20,15 @@ export class OmadaSiteService {
       'Listed Omada sites',
     );
     return sites;
+  }
+
+  /** Get a single site's detail (VERIFIED endpoint). */
+  async getSite(siteId: string): Promise<OmadaSite> {
+    const path = this.sitePath(siteId);
+    return this.client.request<OmadaSite>(path, { method: 'GET' });
+  }
+
+  private sitePath(siteId: string): string {
+    return `/openapi/v1/${encodeURIComponent(this.client.cfg.omadaId)}/sites/${encodeURIComponent(siteId)}`;
   }
 }

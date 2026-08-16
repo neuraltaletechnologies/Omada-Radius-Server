@@ -2,12 +2,13 @@
 
 Backend orchestrator for a commercial Wi-Fi hotspot / mobile-money voucher platform.
 
-**Current milestone (Phase 1 + Phase 3):**
-- Project scaffolding (TypeScript, Fastify v5, Pino, Zod, Vitest, Docker)
-- Omada Open API connectivity layer:
-  backend → Omada Open API → **auth (OAuth2 client-credentials) → access token → simple authenticated request** → SUCCESS
+**Current status:**
+- Phase 1 + 3 ✅ Scaffolding (TypeScript, Fastify v5, Pino, Zod, Vitest, Docker) + Omada Open API connectivity layer
+  (endpoints verified against the installed controller v5.15.24.19 OpenAPI at `/v3/api-docs`).
+- Phase 2 ✅ Database schema (Prisma/PostgreSQL), migration, seed, package catalog API.
 
-Payment, SMS, voucher provisioning and the captive-portal integration are **later milestones** (per the roadmap). The only "business" module implemented so far is the Omada client used to prove connectivity. Voucher endpoints are deliberately **not** implemented until verified against the installed controller's API documentation.
+Payment, SMS, voucher provisioning and the captive-portal integration are **later milestones**.
+Voucher **schemas** must be confirmed from `/v3/api-docs` before Phase 4.
 
 ---
 
@@ -28,7 +29,7 @@ npm run dev                 # dev (tsx watch)
 npm run build && npm start  # production-style
 ```
 
-Server listens on `http://0.0.0.0:3000` (configurable via `PORT`/`HOST`).
+Server listens on `http://localhost:3000` (configurable via `PORT`/`HOST`).
 
 ## Test
 
@@ -44,6 +45,33 @@ Runs the Vitest suite with a **mock** Omada HTTP server (no real controller need
 - invalid-credential error typing
 - API error typing
 - secret redaction in logs
+
+## Database (Phase 2)
+
+Schema lives in `prisma/schema.prisma`; the migration is in `prisma/migrations/`.
+Requires a running PostgreSQL (include it via `docker compose up -d postgres`).
+
+```bash
+# 1) set DATABASE_URL in Backend/.env, e.g. postgresql://postgres:postgres@localhost:5432/wifi_business
+# 2) apply migrations + generate the client
+npm run db:generate
+npm run db:deploy          # apply prisma/migrations to the DB
+# 3) seed the initial packages
+npm run db:seed            # idempotent 500/1000/6000/16000 TZS packages
+```
+
+Verify:
+
+```bash
+curl http://localhost:3000/ready        # 200 when DB is reachable
+curl http://localhost:3000/api/packages # active packages from the DB
+```
+
+Model summary (explicit state enums, no ambiguous booleans):
+`Package`, `Customer`, `Payment` (PaymentStatus), `Voucher` (VoucherStatus,
+`paymentId` unique ⇒ one voucher per successful payment), `PortalSession`,
+`SmsMessage` (SmsStatus), `Job` (JobStatus; DB-backed queue, `@@unique([type, entityId])`
+for idempotency).
 
 ## Omada connectivity test (the first milestone)
 

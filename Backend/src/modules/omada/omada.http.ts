@@ -194,19 +194,22 @@ export class OmadaHttp {
       );
     }
 
-    if (payload.code !== 0) {
-      const isAuthFailure =
-        payload.code === 401 || res.status === 401 || payload.code === -32103;
+    // VERIFIED envelope: `{ errorCode, msg, result }`, success = errorCode === 0.
+    // (`code`/`message` kept as fallbacks across controller versions.)
+    const apiCode = payload.errorCode ?? payload.code;
+    if ((apiCode ?? 0) !== 0) {
+      const authCodes = new Set([401, 403, -32103, -7131]); // invalid_client / controller not exist
+      const isAuthFailure = (apiCode !== undefined && authCodes.has(apiCode)) || res.status === 401;
       if (isAuthFailure) {
         throw new OmadaAuthenticationError(
-          `Omada authentication failed (code ${payload.code})`,
-          { omadaCode: payload.code, httpStatus: res.status },
+          `Omada authentication failed (errorCode ${apiCode})`,
+          { omadaCode: apiCode, httpStatus: res.status },
         );
       }
       throw new OmadaApiError(
-        `Omada API error (code ${payload.code})`,
-        { omadaCode: payload.code, httpStatus: res.status },
-        payload.code,
+        `Omada API error (errorCode ${apiCode})`,
+        { omadaCode: apiCode, httpStatus: res.status },
+        apiCode,
         res.status,
       );
     }

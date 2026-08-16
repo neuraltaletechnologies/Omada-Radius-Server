@@ -1,0 +1,204 @@
+// Omada-Radius Wi-Fi voucher platform - Prisma schema
+// Generator / datasource. DATABASE_URL comes from Backend/.env
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Explicit state machines (no ambiguous booleans like paymentSuccessful)
+// ---------------------------------------------------------------------------
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum VoucherStatus {
+  NOT_CREATED
+  CREATING
+  CREATED
+  FAILED
+}
+
+enum SmsStatus {
+  NOT_SENT
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+// ---------------------------------------------------------------------------
+// Catalog
+// ---------------------------------------------------------------------------
+
+// Internet packages are stored in the DB (not hard-coded in the frontend).
+model Package {
+  id              String   @id @default(cuid())
+  name            String
+  price           Int // TZS (whole shillings)
+  currency        String   @default("TZS")
+  durationSeconds Int
+  speedLimit      Int?
+  downloadLimit   Int?
+  uploadLimit     Int?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  payments Payment[]
+  vouchers Voucher[]
+
+  @@index([active])
+  @@index([currency, price])
+}
+
+// ---------------------------------------------------------------------------
+// Customers
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id                    String          @id @default(cuid())
+  phoneNumber           String
+  normalizedPhoneNumber String          @unique
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  payments      Payment[]
+  portalSessions PortalSession[]
+}
+
+// ---------------------------------------------------------------------------
+// Payments
+// ---------------------------------------------------------------------------
+
+model Payment {
+  id                   String        @id @default(cuid())
+  transactionReference String        @unique
+  customerId           String
+  packageId            String
+  amount               Int
+  currency             String        @default("TZS")
+  phoneNumber          String
+  provider             String
+  providerTransactionId String?      @unique
+  status               PaymentStatus @default(CREATED)
+  failureReason        String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  paidAt               DateTime?
+
+  customer     Customer        @relation(fields: [customerId], references: [id])
+  package      Package         @relation(fields: [packageId], references: [id])
+  voucher      Voucher?
+  portalSession PortalSession?
+  smsMessages  SmsMessage[]
+  jobs         Job[]
+
+  @@index([customerId])
+  @@index([packageId])
+  @@index([status])
+  @@index([provider, providerTransactionId])
+}
+
+// One successful payment can provision at most one voucher (paymentId is unique).
+model Voucher {
+  id              String          @id @default(cuid())
+  paymentId       String          @unique
+  packageId       String
+  omadaVoucherId  String?
+  voucherCode     String?
+  username        String?
+  password        String?
+  durationSeconds Int
+  status          VoucherStatus   @default(NOT_CREATED)
+  createdAt       DateTime        @default(now())
+  expiresAt       DateTime?
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+  package Package @relation(fields: [packageId], references: [id])
+
+  @@index([status])
+}
+
+// Preserved Omada external-portal data (client MAC, AP MAC, SSID, site, redirect URL).
+model PortalSession {
+  id               String    @id @default(cuid())
+  clientMac        String
+  apMac            String?
+  ssid             String?
+  siteId           String?
+  omadaRedirectUrl String?
+  customerId       String?
+  paymentId        String?   @unique
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime?
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+  payment  Payment?  @relation(fields: [paymentId], references: [id])
+
+  @@index([clientMac])
+  @@index([customerId])
+  @@index([paymentId])
+}
+
+// ---------------------------------------------------------------------------
+// SMS
+// ---------------------------------------------------------------------------
+
+model SmsMessage {
+  id                  String    @id @default(cuid())
+  paymentId           String
+  phoneNumber         String
+  message             String
+  provider            String
+  providerMessageId   String?
+  status              SmsStatus @default(NOT_SENT)
+  retries             Int       @default(0)
+  sentAt              DateTime?
+  createdAt           DateTime  @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Background jobs (database-backed queue, upgradeable to Redis/BullMQ later)
+// ---------------------------------------------------------------------------
+
+model Job {
+  id         String    @id @default(cuid())
+  type       String // e.g. PROVISION_VOUCHER | SEND_VOUCHER_SMS
+  entityId   String // idempotency key (paymentId / voucherId)
+  payload    Json
+  status     JobStatus @default(PENDING)
+  attempts   Int       @default(0)
+  maxAttempts Int      @default(3)
+  runAt      DateTime?
+  lastError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  payment Payment? @relation(fields: [paymentId], references: [id])
+  paymentId String?
+
+  @@unique([type, entityId])
+  @@index([status, runAt])
+}

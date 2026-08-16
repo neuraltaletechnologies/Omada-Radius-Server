@@ -1,6 +1,7 @@
 import type { Logger } from '../../lib/logger.js';
 import { OmadaAuthenticationError } from '../../lib/errors.js';
 import type { OmadaConfig, OmadaSite } from './omada.types.js';
+import type { HttpRequestOptions } from './omada.http.js';
 import { OmadaHttp } from './omada.http.js';
 import { OmadaTokenProvider } from './omada.auth.js';
 import { OMADA_PATHS } from './omada.paths.js';
@@ -36,11 +37,11 @@ export class OmadaClient {
    */
   private async authedRequest<T>(
     path: string,
-    query?: Record<string, string | number | undefined>,
+    opts: HttpRequestOptions = {},
   ): Promise<T> {
     let token = await this.auth.getToken();
     try {
-      return await this.http.request<T>(path, { token, query });
+      return await this.http.request<T>(path, { token, ...opts });
     } catch (err) {
       if (err instanceof OmadaAuthenticationError) {
         this.logger.warn(
@@ -49,10 +50,18 @@ export class OmadaClient {
         );
         this.auth.clear();
         token = await this.auth.getToken(true);
-        return this.http.request<T>(path, { token, query });
+        return this.http.request<T>(path, { token, ...opts });
       }
       throw err;
     }
+  }
+
+  /**
+   * Perform an authenticated request (GET/POST/PUT/DELETE) with automatic token
+   * handling. Used by the Omada service layer (sites, clients, vouchers).
+   */
+  async request<T>(path: string, opts: HttpRequestOptions = {}): Promise<T> {
+    return this.authedRequest<T>(path, opts);
   }
 
   /**
