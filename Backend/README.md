@@ -3,12 +3,24 @@
 Backend orchestrator for a commercial Wi-Fi hotspot / mobile-money voucher platform.
 
 **Current status:**
-- Phase 1 + 3 ✅ Scaffolding (TypeScript, Fastify v5, Pino, Zod, Vitest, Docker) + Omada Open API connectivity layer
-  (endpoints verified against the installed controller v5.15.24.19 OpenAPI at `/v3/api-docs`).
+- Phase 1 ✅ Scaffolding (TypeScript, Fastify v5, Pino, Zod, Vitest, Docker).
 - Phase 2 ✅ Database schema (Prisma/PostgreSQL), migration, seed, package catalog API.
-
-Payment, SMS, voucher provisioning and the captive-portal integration are **later milestones**.
-Voucher **schemas** must be confirmed from `/v3/api-docs` before Phase 4.
+- Phase 3 ✅ Omada Open API connectivity layer (auth, token cache/refresh; endpoints verified
+  against the installed controller v5.15.24.19 OpenAPI at `/v3/api-docs`, also checked into this
+  repo as `omada-openapi.json`).
+- Phase 4 ✅ Omada site/client/voucher services, including voucher-group create/get/delete/list.
+  The `CreateVoucherGroupOpenApiVO` request shape is verified field-for-field against
+  `omada-openapi.json` (see `omada.voucher.service.ts`).
+- Phase 5-9 ✅ Fake payment provider, payment state machine + webhook (idempotent, signature-verified),
+  DB-backed job queue (`Job` table) driving voucher provisioning + SMS dispatch, fake SMS provider,
+  and an end-to-end simulated-purchase path - all runnable without a real controller via
+  `OMADA_MODE=mock`, and without real money/SMS via `PAYMENT_PROVIDER=fake` / `SMS_PROVIDER=fake`.
+- Phase 10-14 (real payment provider, real SMS provider, real Omada auth in production, external
+  captive-portal integration, production Docker Compose) are **not implemented yet**. In
+  particular, no real `PaymentProvider`/`SmsProvider` adapter exists - ClickPesa is the intended
+  first payment target, but its push-payment/webhook shape must come from ClickPesa's own API
+  docs before that adapter can be written (same rule this repo applies to the Omada API: never
+  invent a third-party API's shape).
 
 ---
 
@@ -37,14 +49,56 @@ Server listens on `http://localhost:3000` (configurable via `PORT`/`HOST`).
 npm test
 ```
 
-Runs the Vitest suite with a **mock** Omada HTTP server (no real controller needed):
+Runs the Vitest suite against fakes/mocks only - no Postgres or real controller needed:
 - env validation
-- Omada auth + connectivity (the milestone)
-- token caching
-- 401 → auto token refresh
-- invalid-credential error typing
-- API error typing
+- Omada auth + connectivity (the Phase 3 milestone), token caching, 401 → auto refresh
+- voucher-group create/get/delete against `MockOmadaClient` (schema-verified against `omada-openapi.json`)
+- phone/MAC normalisation
+- full simulated purchase: payment → verified webhook → voucher → SMS (Phase 9)
+- idempotency: duplicate webhook, duplicate in-flight payment, re-run voucher provisioning
+- failure paths: invalid webhook signature, failed payment, Omada failure after payment, SMS
+  failure after voucher creation (with retry)
+- HTTP route wiring (health/catalog/payments/vouchers/portal/admin all reachable, Zod errors
+  always map to a typed 400, never a raw 500)
 - secret redaction in logs
+
+## Local end-to-end purchase (no real money, no real controller)
+
+Set `OMADA_MODE=mock`, `PAYMENT_PROVIDER=fake`, `SMS_PROVIDER=fake` (the `.env.example` defaults
+already do this for payment/SMS) and run against a local Postgres:
+
+```bash
+docker compose up -d postgres
+npm run db:generate && npm run db:deploy && npm run db:seed
+npm run dev
+```
+
+Then, in another terminal:
+
+```bash
+# 1) create a payment (PENDING)
+curl -s -X POST http://localhost:3000/api/payments -H 'content-type: application/json' -d '{
+  "packageId": "package_3_hours", "phoneNumber": "0712345678",
+  "clientMac": "AA:BB:CC:DD:EE:FF", "siteId": "mock-site-1"
+}'
+# -> { "paymentId": "...", "status": "PENDING", "portalSessionId": "..." }
+
+# 2) simulate the provider calling our webhook (dev-only, requires x-admin-key)
+curl -s -X POST http://localhost:3000/api/dev/payments/<paymentId>/simulate \
+  -H 'content-type: application/json' -H 'x-admin-key: <ADMIN_API_KEY>' -d '{"status":"SUCCESS"}'
+
+# 3) poll status - the background job worker provisions the voucher and sends the SMS asynchronously
+curl -s http://localhost:3000/api/payments/<paymentId>/status
+# -> { "paymentStatus": "SUCCESS", "voucherStatus": "CREATED", "smsStatus": "SENT", "voucherCode": "..." }
+
+# 4) authenticate the client on Omada (mock or real, depending on OMADA_MODE)
+curl -s -X POST http://localhost:3000/api/portal/authenticate \
+  -H 'content-type: application/json' -d '{"paymentId": "<paymentId>"}'
+```
+
+`OMADA_MODE=mock` and `PAYMENT_PROVIDER=fake`/`SMS_PROVIDER=fake` are for development only - the
+`/api/dev/*` routes refuse to run when `NODE_ENV=production` or a real payment provider is
+configured.
 
 ## Database (Phase 2)
 

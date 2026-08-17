@@ -1,6 +1,6 @@
 import type { Logger } from '../../lib/logger.js';
 import { VoucherCreationError } from '../../lib/errors.js';
-import type { OmadaClient } from './omada.client.js';
+import type { IOmadaClient } from './omada.client.js';
 import { OMADA_PATHS } from './omada.paths.js';
 import type {
   CreateVoucherGroupRequest,
@@ -52,7 +52,7 @@ export interface CreatedVoucher {
  */
 export class OmadaVoucherService {
   constructor(
-    private readonly client: OmadaClient,
+    private readonly client: IOmadaClient,
     private readonly logger: Logger,
   ) {}
 

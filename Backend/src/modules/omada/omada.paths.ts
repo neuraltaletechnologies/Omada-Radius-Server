@@ -47,6 +47,10 @@ export const OMADA_PATHS = {
   hotspotClientAuth: (omadacId: string, siteId: string, clientMac: string) =>
     `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/hotspot/clients/${encodeURIComponent(clientMac)}/auth`,
 
+  /** Hotspot client de-authorisation (VERIFIED path). */
+  hotspotClientUnauth: (omadacId: string, siteId: string, clientMac: string) =>
+    `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/hotspot/clients/${encodeURIComponent(clientMac)}/unauth`,
+
   /** Hotspot voucher groups (VERIFIED paths; schemas pending confirmation). */
   voucherGroups: (omadacId: string, siteId: string) =>
     `/openapi/v1/${encodeURIComponent(omadacId)}/sites/${encodeURIComponent(siteId)}/hotspot/voucher-groups`,

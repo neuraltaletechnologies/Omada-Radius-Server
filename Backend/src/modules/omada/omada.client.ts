@@ -7,6 +7,19 @@ import { OmadaTokenProvider } from './omada.auth.js';
 import { OMADA_PATHS } from './omada.paths.js';
 
 /**
+ * The surface every Omada module (site/client/voucher services) depends on.
+ * `OmadaClient` (real HTTP) and `MockOmadaClient` (in-memory, OMADA_MODE=mock)
+ * both implement it, selected by `createOmadaClient()` - services never care
+ * which one they were given.
+ */
+export interface IOmadaClient {
+  readonly cfg: OmadaConfig;
+  request<T>(path: string, opts?: HttpRequestOptions): Promise<T>;
+  getSites(): Promise<OmadaSite[]>;
+  getClients(siteId: string): Promise<unknown[]>;
+}
+
+/**
  * Reusable OmadaClient.
  *
  * Responsibilities (per the architecture):
@@ -19,7 +32,7 @@ import { OMADA_PATHS } from './omada.paths.js';
  *
  * No Omada endpoint path is hard-coded here - see omada.paths.ts.
  */
-export class OmadaClient {
+export class OmadaClient implements IOmadaClient {
   readonly http: OmadaHttp;
   private readonly auth: OmadaTokenProvider;
 

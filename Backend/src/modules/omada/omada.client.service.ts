@@ -1,5 +1,5 @@
 import type { Logger } from '../../lib/logger.js';
-import type { OmadaClient } from './omada.client.js';
+import type { IOmadaClient } from './omada.client.js';
 import { OMADA_PATHS } from './omada.paths.js';
 import type { OmadaClientInfo } from './omada.types.js';
 
@@ -10,7 +10,7 @@ import type { OmadaClientInfo } from './omada.types.js';
  */
 export class OmadaClientService {
   constructor(
-    private readonly client: OmadaClient,
+    private readonly client: IOmadaClient,
     private readonly logger: Logger,
   ) {}
 
@@ -45,6 +45,21 @@ export class OmadaClientService {
     this.logger.info(
       { event: 'omada.client.unblocked', siteId, clientMac },
       'Unblocked Omada client',
+    );
+  }
+
+  /**
+   * Authorise a hotspot client (the external-portal auth step, spec section
+   * 19/20). VERIFIED against the controller's OpenAPI: `POST
+   * .../hotspot/clients/{clientMac}/auth` takes no request body - only the
+   * omadacId/siteId/clientMac path segments.
+   */
+  async authorizeClient(siteId: string, clientMac: string): Promise<void> {
+    const path = OMADA_PATHS.hotspotClientAuth(this.client.cfg.omadaId, siteId, clientMac);
+    await this.client.request<unknown>(path, { method: 'POST' });
+    this.logger.info(
+      { event: 'omada.client.authorized', siteId, clientMac },
+      'Authorised Omada hotspot client',
     );
   }
 }

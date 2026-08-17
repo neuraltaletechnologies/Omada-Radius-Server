@@ -13,6 +13,12 @@ export default defineConfig({
       OMADA_ID: 'omada-1',
       OMADA_MODE: 'real',
       ADMIN_API_KEY: 'test-admin-key',
+      // Pin every DB/provider var explicitly so a developer's local Backend/.env
+      // (loaded via dotenv/config in config/env.ts) can never leak into the test
+      // process and make route-wiring tests non-deterministic.
+      DATABASE_URL: '',
+      PAYMENT_PROVIDER: 'none',
+      SMS_PROVIDER: 'none',
     },
     testTimeout: 15000,
   },

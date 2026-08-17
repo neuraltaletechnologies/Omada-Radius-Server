@@ -35,9 +35,34 @@ const envSchema = z.object({
     .transform((v) => v !== 'false' && v !== '0')
     .default('false'),
 
-  // Payment / SMS providers (later milestones - declared now for structure)
-  PAYMENT_PROVIDER: z.enum(['fake', 'manual', 'none']).default('none'),
+  // Payment provider (Phase 5+). 'clickpesa' is declared but not yet wired -
+  // see src/modules/payment/payment.provider.factory.ts.
+  PAYMENT_PROVIDER: z.enum(['fake', 'clickpesa', 'manual', 'none']).default('none'),
+  PAYMENT_API_URL: z.string().optional(),
+  PAYMENT_API_KEY: z.string().optional(),
+  PAYMENT_API_SECRET: z.string().optional(),
+  PAYMENT_CALLBACK_URL: z.string().optional(),
+  /** HMAC secret used to verify inbound webhook signatures; falls back to PAYMENT_API_SECRET. */
+  PAYMENT_WEBHOOK_SECRET: z.string().optional(),
+
+  // ClickPesa (PAYMENT_PROVIDER=clickpesa). See docs.clickpesa.com.
+  CLICKPESA_BASE_URL: z.string().default('https://api.clickpesa.com'),
+  CLICKPESA_CLIENT_ID: z.string().optional(),
+  CLICKPESA_API_KEY: z.string().optional(),
+  /** Only needed if checksums are enabled for the merchant account in the ClickPesa dashboard. */
+  CLICKPESA_CHECKSUM_SECRET: z.string().optional(),
+  CLICKPESA_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
+
+  // SMS provider (Phase 8+).
   SMS_PROVIDER: z.enum(['fake', 'manual', 'none']).default('none'),
+  SMS_API_URL: z.string().optional(),
+  SMS_API_KEY: z.string().optional(),
+  SMS_API_SECRET: z.string().optional(),
+  SMS_SENDER_ID: z.string().optional(),
+
+  // Database-backed job queue (voucher provisioning + SMS dispatch).
+  JOB_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
+  JOB_BATCH_SIZE: z.coerce.number().int().positive().default(5),
 
   // Minimal admin bearer/API key for this milestone; RBAC comes later.
   ADMIN_API_KEY: z.string().optional(),
@@ -95,4 +120,12 @@ export const REDACT_KEY_PATTERNS = [
   '*authorization',
   'secret',
   '*secret',
+  'pin',
+  '*pin',
+  'signature',
+  '*signature',
+  'token',
+  '*token',
+  'checksumSecret',
+  '*checksumSecret',
 ];

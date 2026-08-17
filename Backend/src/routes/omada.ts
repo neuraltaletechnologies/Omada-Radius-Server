@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { logger } from '../lib/logger.js';
-import { OmadaClient } from '../modules/omada/omada.client.js';
 import { OmadaSiteService } from '../modules/omada/omada.site.service.js';
 import { createOmadaConfigFromEnv } from '../modules/omada/create-omada-config.js';
+import { createOmadaClient } from '../modules/omada/create-omada-client.js';
 import { requireAdmin } from './middleware.js';
 
 /**
@@ -20,7 +20,7 @@ export async function omadaRoutes(app: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const started = Date.now();
     const cfg = createOmadaConfigFromEnv();
-    const client = new OmadaClient(cfg, logger);
+    const client = createOmadaClient(logger, cfg);
     const siteService = new OmadaSiteService(client, logger);
 
     try {

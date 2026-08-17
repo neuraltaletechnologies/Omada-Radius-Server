@@ -1,12 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
+import { ZodError } from 'zod';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { AppError } from './lib/errors.js';
 import { healthRoutes } from './routes/health.js';
 import { omadaRoutes } from './routes/omada.js';
 import { catalogRoutes } from './routes/catalog.js';
+import { paymentsRoutes } from './routes/payments.js';
+import { voucherRoutes } from './routes/vouchers.js';
+import { portalRoutes } from './routes/portal.js';
+import { adminRoutes } from './routes/admin.js';
 
 /**
  * Build (but do not start) the Fastify application - useful for tests and the
@@ -62,6 +67,10 @@ export function buildApp(): FastifyInstance {
   void app.register(healthRoutes);
   void app.register(omadaRoutes);
   void app.register(catalogRoutes);
+  void app.register(paymentsRoutes);
+  void app.register(voucherRoutes);
+  void app.register(portalRoutes);
+  void app.register(adminRoutes);
 
   setErrorHandler(app);
 
@@ -74,6 +83,14 @@ export function buildApp(): FastifyInstance {
  */
 function setErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((error: unknown, _request: FastifyRequest, reply: FastifyReply) => {
+    if (error instanceof ZodError) {
+      const issues = error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
+      logger.warn({ code: 'VALIDATION_ERROR', issues }, 'Handled error: VALIDATION_ERROR');
+      return reply.status(400).send({
+        error: { code: 'VALIDATION_ERROR', message: 'Request validation failed', details: { issues } },
+      });
+    }
+
     if (error instanceof AppError) {
       logger.warn(
         {

@@ -1,6 +1,6 @@
 import type { Logger } from '../../lib/logger.js';
 import type { OmadaSite } from './omada.types.js';
-import type { OmadaClient } from './omada.client.js';
+import type { IOmadaClient } from './omada.client.js';
 
 /**
  * Dedicated Omada site service. Keeps site-related API calls in one place so
@@ -8,7 +8,7 @@ import type { OmadaClient } from './omada.client.js';
  */
 export class OmadaSiteService {
   constructor(
-    private readonly client: OmadaClient,
+    private readonly client: IOmadaClient,
     private readonly logger: Logger,
   ) {}
 

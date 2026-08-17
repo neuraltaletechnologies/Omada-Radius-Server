@@ -48,16 +48,17 @@ verified SUCCESS** (with duplicate-webhook / idempotency guards).
 1. ✅ Project setup (TS, Fastify, Docker, Postgres scaffold, env)
 2. ✅ Database schema & migrations (Prisma), package seed, catalog API (`/api/packages`, `/ready`)
 3. ✅ Omada API client: auth + token + connectivity probe (paths verified against `/v3/api-docs`)
-4. Omada site/client/voucher services (voucher schemas to be confirmed from `/v3/api-docs`) — next
-5. Fake payment provider
-6. Payment state machine
-7. Voucher provisioning after verified payment
-8. Fake SMS provider
-9. End-to-end simulated purchase
-10. External captive portal integration
-11. Real payment provider
+4. ✅ Omada site/client/voucher services (voucher-group schema verified against `omada-openapi.json`)
+5. ✅ Fake payment provider (`PAYMENT_PROVIDER=fake`)
+6. ✅ Payment state machine + idempotent, signature-verified webhook
+7. ✅ Voucher provisioning after verified payment (DB-backed job queue, `OMADA_MODE=mock` for dev)
+8. ✅ Fake SMS provider (`SMS_PROVIDER=fake`)
+9. ✅ End-to-end simulated purchase (see Backend/README.md "Local end-to-end purchase")
+10. External captive portal integration — next (routes exist: `/api/portal/*`; no Next.js portal yet)
+11. Real payment provider (ClickPesa is the intended first target - needs ClickPesa's own API docs)
 12. Real SMS provider
-13. Real Omada authentication flow + portal client auth
+13. Real Omada authentication flow + portal client auth against a live controller (code exists;
+    live verification still blocked per the "Live auth blocker observed" note below)
 14. Production Docker Compose
 
 ## Omada API verification checklist (do this against the running controller)

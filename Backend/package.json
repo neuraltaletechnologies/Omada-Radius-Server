@@ -12,6 +12,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "omada:connect": "tsx src/scripts/omada-connectivity-test.ts",
+    "clickpesa:connect": "tsx src/scripts/clickpesa-connectivity-test.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "prisma generate",
