@@ -5,9 +5,9 @@ describe('OMADA_PATHS (verified against installed controller v5.15.x OpenAPI)', 
   const omadacId = 'omada-abc';
   const siteId = 'site-1';
 
-  it('token endpoint is under /openapi/v1 and takes omadacId as a query param', () => {
-    expect(OMADA_PATHS.token).toBe('/openapi/v1/oauth2/token');
-    // omadacId is added as a query param by OmadaHttp.requestToken, not the path.
+  it('token endpoint is /openapi/authorize/token (per the embedded Open API Access Guide, NOT under /openapi/v1)', () => {
+    expect(OMADA_PATHS.token).toBe('/openapi/authorize/token');
+    // omadacId is sent in the JSON body by OmadaHttp.requestToken, not the path or query.
     expect(OMADA_PATHS.token).not.toContain(omadacId);
   });
 
@@ -36,11 +36,11 @@ describe('OMADA_PATHS (verified against installed controller v5.15.x OpenAPI)', 
     );
   });
 
-  it('does not invent paths outside the /openapi/v1 base', () => {
+  it('does not invent paths outside the documented bases (/openapi/v1 for resources, /openapi/authorize for the token endpoint)', () => {
     const paths = Object.values(OMADA_PATHS);
     const samples = [OMADA_PATHS.sites('x'), OMADA_PATHS.site('x', 'y')];
     for (const s of samples) expect(s).toMatch(/^\/openapi\/v1\//);
-    expect('/' + OMADA_PATHS.token.replace(/^\//, '')).toMatch(/^\/openapi\/v1\//);
+    expect(OMADA_PATHS.token).toMatch(/^\/openapi\/authorize\//);
     expect(paths.every((p) => typeof p === 'string' || typeof p === 'function')).toBe(true);
   });
 });

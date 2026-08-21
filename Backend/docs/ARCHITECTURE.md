@@ -55,42 +55,47 @@ verified SUCCESS** (with duplicate-webhook / idempotency guards).
 8. ✅ Fake SMS provider (`SMS_PROVIDER=fake`)
 9. ✅ End-to-end simulated purchase (see Backend/README.md "Local end-to-end purchase")
 10. External captive portal integration — next (routes exist: `/api/portal/*`; no Next.js portal yet)
-11. Real payment provider (ClickPesa is the intended first target - needs ClickPesa's own API docs)
-12. Real SMS provider
-13. Real Omada authentication flow + portal client auth against a live controller (code exists;
-    live verification still blocked per the "Live auth blocker observed" note below)
+11. Real payment provider - `ClickPesaProvider` implemented against ClickPesa's own docs,
+    credentials verified live (token obtained); no real push payment triggered yet (needs a
+    public webhook URL + explicit go-ahead since it moves real money)
+12. Real SMS provider — not started (`SMS_PROVIDER=fake`)
+13. ✅ Real Omada authentication flow — `npm run omada:connect` succeeds against the live
+    controller (see "Live milestone: ACHIEVED" below); portal client-auth (`/api/portal/authenticate`)
+    implemented but not yet exercised against a real connected Wi-Fi client
 14. Production Docker Compose
 
 ## Omada API verification checklist (do this against the running controller)
 
 Endpoints come from the controller's own Online API Documentation
-(`https://{controller}:8043/v3/api-docs`, "Omada Open API" v0.1, Controller **v5.15.24.19**).
-Base path: **`/openapi/v1`**. `omadacId` is a PATH segment on authenticated calls
-and a QUERY param on the token endpoint.
+(`https://{controller}:8043/v3/api-docs`, "Omada Open API" v0.1). Resource base path:
+**`/openapi/v1`**, `omadacId` a PATH segment. The token endpoint lives OUTSIDE that base
+(`/openapi/authorize/token`) and is documented separately, embedded in the same spec file
+under `x-openapi.x-setting.homeCustomLocation` (the "Open API Access Guide") rather than in
+the regular `paths` listing - grep the raw spec JSON, don't just search `paths` keys, or you
+will miss it (see `Backend/README.md`'s live-verification section for the full story).
 
-Verified paths (already reflected in `src/modules/omada/omada.paths.ts`):
-- [x] Token: `POST /openapi/v1/oauth2/token?omadacId=...`
-      (`grant_type=client_credentials`, `client_id`, `client_secret`)
-- [x] Sites listing: `GET /openapi/v1/{omadacId}/sites`
+Verified paths (reflected in `src/modules/omada/omada.paths.ts`):
+- [x] Token: `POST /openapi/authorize/token?grant_type=client_credentials`, JSON body
+      `{ omadacId, client_id, client_secret }`. Auth header on all other calls is
+      `Authorization: AccessToken=<token>`, not `Bearer`.
+- [x] Sites listing: `GET /openapi/v1/{omadacId}/sites?page=1&pageSize=...` (page/pageSize
+      required; response is a grid `{ data: [...] }`, id field is `siteId`)
 - [x] Site clients: `GET /openapi/v1/{omadacId}/sites/{siteId}/clients`
 - [x] Hotspot client auth (external-portal flow): `.../hotspot/clients/{clientMac}/auth` / `unauth`
 - [x] Voucher-group model paths: `.../hotspot/voucher-groups` (+ sub-paths), `.../hotspot/vouchers/{id}`
-- [ ] Voucher CREATE request schema (how a group/voucher is generated: profile,
-      duration/expiry, quantity) — confirm from v3/api-docs before Phase 4
-- [ ] Voucher **get**/**list**/**delete** schemas — confirm from v3/api-docs
-- [ ] Client **MAC binding** requirements for vouchers — confirm
-- [ ] **Site ID** value/style (siteId is a path segment) — path confirmed, confirm values
+- [x] Voucher CREATE request schema (`CreateVoucherGroupOpenApiVO`) — diffed field-for-field
+      against `components.schemas` in the spec
+- [x] Voucher **get**/**list**/**delete** schemas — confirmed
+- [ ] Client **MAC binding** requirements for vouchers — not yet exercised against a real client
+- [x] **Site ID** value/style — confirmed live (`siteId` is a Mongo ObjectId-style string)
 
-### Live auth blocker observed
-`POST /openapi/v1/oauth2/token?omadacId=b727c2c...` (the OMADA_ID from the old root
-`.env`) returns `{"errorCode":-7131,"msg":"Controller ID not exist."}` — the path is
-correct, so the **`omadacId` must be the value the Open API application was registered
-with** (Settings → Open API → app → Omada ID), which may differ from the controller's
-UI omadacId. Resolve `OMADA_ID` accordingly (and confirm the app is enabled), then re-run
-`npm run omada:connect`.
-
-Proving the milestone: `npm run omada:connect` (or the admin HTTP route) prints
-`authenticated and listed N site(s)`.
+### Live milestone: ACHIEVED
+`npm run omada:connect` succeeds against the real controller. Getting here required fixing
+three real bugs in this codebase, not resolving a controller-side blocker - see
+`Backend/README.md`'s live-verification section for the full root-cause writeup:
+1. The token endpoint path was simply wrong (`/openapi/v1/oauth2/token` never existed).
+2. HTTP-level errors without an Omada envelope `errorCode` were silently treated as success.
+3. The sites endpoint requires `page`/`pageSize`; omitting them is a 400, not an empty list.
 
 ## Secrets handling
 

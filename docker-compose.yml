@@ -1,7 +1,10 @@
 services:
 
   omada:
-    image: mbentley/omada-controller:latest
+    # Pinned (never :latest, per the project's own design goal) - see
+    # Backend/docs/ARCHITECTURE.md for why: :latest is a moving target and a
+    # major-version jump can change the Open API surface without warning.
+    image: mbentley/omada-controller:6.2.14.11
     container_name: omada-controller
     restart: unless-stopped
 

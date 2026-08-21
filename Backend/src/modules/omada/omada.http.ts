@@ -16,7 +16,7 @@ export interface HttpRequestOptions {
   json?: unknown;
   /** form-urlencoded body */
   form?: Record<string, string>;
-  /** Bearer token; when omitted the request is treated as unauthenticated */
+  /** Access token (sent as `AccessToken=<token>`); when omitted the request is treated as unauthenticated */
   token?: string;
 }
 
@@ -66,41 +66,49 @@ export class OmadaHttp {
   }
 
   /**
-   * Request an access token via the OAuth2 client-credentials grant.
-   * The `omadacId` is required here as a QUERY parameter.
+   * Request an access token via the client-credentials grant.
+   *
+   * Per Omada's own embedded "Open API Access Guide" (x-openapi.x-setting.
+   * homeCustomLocation in the controller's /v3/api-docs - NOT a generic
+   * OAuth2 endpoint, and confirmed live against the real controller):
+   *   POST /openapi/authorize/token?grant_type=client_credentials
+   *   Content-Type: application/json
+   *   Body: { omadacId, client_id, client_secret }
+   *   -> result: { accessToken, tokenType, expiresIn, refreshToken }
+   * `omadacId` is in the JSON BODY here, not a query param - unlike every
+   * other (siteId-scoped) endpoint where it's a path segment.
    */
   async requestToken(): Promise<TokenResponse> {
     const url = this.buildUrl(OMADA_PATHS.token);
-    url.searchParams.set('omadacId', this.cfg.omadaId);
-    const form = new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: this.cfg.clientId,
-      client_secret: this.cfg.clientSecret,
-    });
+    url.searchParams.set('grant_type', 'client_credentials');
 
     const res = await this.rawFetch(url.toString(), {
       method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: form,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        omadacId: this.cfg.omadaId,
+        client_id: this.cfg.clientId,
+        client_secret: this.cfg.clientSecret,
+      }),
     });
 
     const payload = await this.parseEnvelope<{
-      access_token: string;
-      expires_in?: number | string;
-      token_type?: string;
-      scope?: string;
+      accessToken: string;
+      expiresIn?: number | string;
+      tokenType?: string;
+      refreshToken?: string;
     }>(res, url.toString());
 
-    if (!payload.result?.access_token) {
+    if (!payload.result?.accessToken) {
       throw new OmadaAuthenticationError(
-        'Omada token response did not include an access_token',
+        'Omada token response did not include an accessToken',
         { httpStatus: res.status },
       );
     }
 
     return {
-      accessToken: payload.result.access_token,
-      expiresIn: Number(payload.result.expires_in ?? 86400),
+      accessToken: payload.result.accessToken,
+      expiresIn: Number(payload.result.expiresIn ?? 7200),
     };
   }
 
@@ -115,7 +123,9 @@ export class OmadaHttp {
       accept: 'application/json',
       ...opts.headers,
     };
-    if (opts.token) headers.authorization = `Bearer ${opts.token}`;
+    // Omada's Open API does NOT use the standard "Bearer " scheme - the
+    // Access Guide documents the literal prefix "AccessToken=" instead.
+    if (opts.token) headers.authorization = `AccessToken=${opts.token}`;
     if (opts.json !== undefined) headers['content-type'] = 'application/json';
 
     let body: string | URLSearchParams | undefined;
@@ -189,6 +199,27 @@ export class OmadaHttp {
       throw new OmadaApiError(
         'Omada returned a non-JSON response',
         { httpStatus: res.status },
+        undefined,
+        res.status,
+      );
+    }
+
+    // A raw framework-level error response (e.g. Spring's default error page
+    // for a 400 on a missing required query param) is valid JSON but has NO
+    // `errorCode` field at all - `(undefined ?? 0) !== 0` is false, so without
+    // this check such a response would silently look like SUCCESS with an
+    // empty/undefined result. Any non-2xx HTTP status is always an error,
+    // regardless of whether the Omada envelope shape is present.
+    if (res.status < 200 || res.status >= 300) {
+      if (res.status === 401 || res.status === 403) {
+        throw new OmadaAuthenticationError(`Omada request rejected (HTTP ${res.status})`, {
+          httpStatus: res.status,
+          body: payload,
+        });
+      }
+      throw new OmadaApiError(
+        `Omada returned HTTP ${res.status}`,
+        { httpStatus: res.status, body: payload },
         undefined,
         res.status,
       );

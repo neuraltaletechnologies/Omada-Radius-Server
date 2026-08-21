@@ -1,26 +1,40 @@
 /**
- * SINGLE SOURCE OF TRUTH for Omada endpoint paths (Omada Controller v5.15.x).
+ * SINGLE SOURCE OF TRUTH for Omada endpoint paths.
  *
- * These paths were extracted from the ONLINE API DOCUMENTATION of the installed
- * controller, available at https://{controller}/v3/api-docs (Swagger/OpenAPI
- * "Omada Open API" v0.1). They are authoritative for THIS controller version.
+ * Resource paths (sites/clients/hotspot/vouchers/...) were extracted from the
+ * ONLINE API DOCUMENTATION of the installed controller, available at
+ * https://{controller}/v3/api-docs (Swagger/OpenAPI "Omada Open API" v0.1).
+ *
+ * The TOKEN endpoint is NOT part of that `paths` listing - it's documented
+ * separately in the "Open API Access Guide" embedded in the same spec at
+ * `x-openapi.x-setting.homeCustomLocation`, and confirmed live against the
+ * real controller (see Backend/README.md's live-verification section):
+ *   POST /openapi/authorize/token?grant_type=client_credentials
+ *   Content-Type: application/json
+ *   Body: { omadacId, client_id, client_secret }   <- omadacId in the BODY here
+ *   -> { accessToken, tokenType, expiresIn, refreshToken }
+ * An earlier version of this file used a plausible-looking but NON-EXISTENT
+ * `/openapi/v1/oauth2/token` path with a Bearer-style header - that path was
+ * never in the spec and the controller's IpAccessRuleFilter silently
+ * misparsed it, producing a confusing errorCode -7131 "Controller ID not
+ * exist" instead of a clean 404. Lesson: grep the spec's raw `paths` keys
+ * before trusting a "VERIFIED" comment.
  *
  * Structure (verified):
- *   - API base path  : /openapi/v1
- *   - omadacId       : a PATH segment on authenticated calls:
+ *   - API base path  : /openapi/v1 (all RESOURCE endpoints below)
+ *   - omadacId       : a PATH segment on every resource call:
  *                        /openapi/v1/{omadacId}/...
- *                      a QUERY parameter on the OAuth2 token endpoint:
- *                        POST /openapi/v1/oauth2/token?omadacId={omadacId}
- *   - Auth           : OAuth2 client-credentials (client_id / client_secret),
- *                      presented as `Authorization: Bearer <accessToken>`.
+ *   - Auth           : client-credentials (client_id / client_secret),
+ *                      presented as `Authorization: AccessToken=<accessToken>`
+ *                      (NOT the standard `Bearer` scheme).
  *
- * Voucher endpoints follow the Omada "voucher-group" model. The paths below are
- * verified; the exact request/response schemas for creating vouchers/groups are
- * still to be confirmed from the spec before Phase 4 is implemented.
+ * Voucher endpoints follow the Omada "voucher-group" model; the request/response
+ * schema (CreateVoucherGroupOpenApiVO etc.) is verified field-for-field against
+ * `components.schemas` in the spec.
  */
 export const OMADA_PATHS = {
-  /** OAuth2 client-credentials token endpoint (VERIFIED). needs ?omadacId=. */
-  token: '/openapi/v1/oauth2/token',
+  /** Client-credentials token endpoint (VERIFIED live). NOT under /openapi/v1. */
+  token: '/openapi/authorize/token',
 
   /** List all sites (VERIFIED) - used as the "simple authenticated request" probe. */
   sites: (omadacId: string) => `/openapi/v1/${encodeURIComponent(omadacId)}/sites`,

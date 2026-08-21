@@ -15,7 +15,7 @@ export interface OmadaConfig {
   omadaId: string;
   siteId?: string;
   timeoutMs: number;
-  /** Buffer subtracted from the provider `expires_in` to avoid expiry races */
+  /** Buffer subtracted from the provider `expiresIn` to avoid expiry races */
   tokenTtlSafetySeconds: number;
   /** Omada controllers use self-signed TLS certs; disable CA verification only for them */
   tlsRejectUnauthorized: boolean;
@@ -148,12 +148,15 @@ export interface OmadaVoucher {
   [key: string]: unknown;
 }
 
+/**
+ * Normalised from the wire schema `SiteSummaryInfo` (components.schemas in
+ * the spec), whose id field is `siteId` - `OmadaClient.getSites()` maps that
+ * to `id` here so callers don't need to know the wire field name.
+ */
 export interface OmadaSite {
   id: string;
   name: string;
   type?: string;
-  guid?: string;
-  vendorId?: string;
 }
 
 export interface OmadaClientInfo {

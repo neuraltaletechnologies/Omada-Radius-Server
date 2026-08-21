@@ -32,20 +32,22 @@ export async function startOmadaMock(opts: {
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
-    const omadacId = url.searchParams.get('omadacId');
 
-    // Token endpoint: /openapi/v1/oauth2/token with omadacId as a query param.
-    if (req.method === 'POST' && url.pathname === '/openapi/v1/oauth2/token') {
+    // Token endpoint: POST /openapi/authorize/token?grant_type=client_credentials
+    // with a JSON body { omadacId, client_id, client_secret } - NOT under
+    // /openapi/v1, NOT form-urlencoded. Matches the real controller's
+    // embedded "Open API Access Guide" (see omada.paths.ts).
+    if (req.method === 'POST' && url.pathname === '/openapi/authorize/token') {
       calls.token += 1;
       let body = '';
       req.on('data', (c) => (body += c));
       req.on('end', () => {
-        const params = new URLSearchParams(body);
+        const parsed = body ? (JSON.parse(body) as Record<string, unknown>) : {};
         const okBody =
-          params.get('grant_type') === 'client_credentials' &&
-          params.get('client_id') === 'client-1' &&
-          params.get('client_secret') === 'secret-1' &&
-          omadacId === 'omada-1';
+          url.searchParams.get('grant_type') === 'client_credentials' &&
+          parsed.client_id === 'client-1' &&
+          parsed.client_secret === 'secret-1' &&
+          parsed.omadacId === 'omada-1';
 
         if (!okBody) {
           res.writeHead(401, { 'content-type': 'application/json' });
@@ -66,9 +68,10 @@ export async function startOmadaMock(opts: {
             code: 0,
             message: 'Success',
             result: {
-              access_token: spec.accessToken,
-              expires_in: spec.expiresIn ?? 3600,
-              token_type: 'Bearer',
+              accessToken: spec.accessToken,
+              expiresIn: spec.expiresIn ?? 3600,
+              tokenType: 'bearer',
+              refreshToken: `refresh-${spec.accessToken}`,
             },
           }),
         );
@@ -80,7 +83,7 @@ export async function startOmadaMock(opts: {
     if (req.method === 'GET' && url.pathname === '/openapi/v1/omada-1/sites') {
       calls.sites += 1;
       const auth = req.headers.authorization ?? '';
-      const token = auth.replace(/^Bearer\s+/i, '');
+      const token = auth.replace(/^AccessToken=/i, '');
       if (opts.acceptedToken && token !== opts.acceptedToken) {
         res.writeHead(401, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ code: 401, message: 'expired' }));

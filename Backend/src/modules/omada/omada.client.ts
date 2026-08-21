@@ -6,6 +6,9 @@ import { OmadaHttp } from './omada.http.js';
 import { OmadaTokenProvider } from './omada.auth.js';
 import { OMADA_PATHS } from './omada.paths.js';
 
+/** A single raw record from a grid/list endpoint, before we know the exact shape. */
+type RawGridRecord = Record<string, unknown>;
+
 /**
  * The surface every Omada module (site/client/voucher services) depends on.
  * `OmadaClient` (real HTTP) and `MockOmadaClient` (in-memory, OMADA_MODE=mock)
@@ -79,13 +82,23 @@ export class OmadaClient implements IOmadaClient {
 
   /**
    * List sites. Doubles as the "simple authenticated request" connectivity
-   * probe: auth -> token -> Bearer-authenticated GET -> SUCCESS.
+   * probe: auth -> token -> AccessToken-authenticated GET -> SUCCESS.
+   *
+   * The wire schema is `SiteSummaryInfo` (verified against `components.schemas`
+   * in the spec): the site's id field is `siteId`, not `id`. We normalise to
+   * our own `OmadaSite.id` here so callers don't need to know that.
    */
   async getSites(): Promise<OmadaSite[]> {
-    const result = await this.authedRequest<OmadaSite[] | { list: OmadaSite[] }>(
-      OMADA_PATHS.sites(this.cfg.omadaId),
-    );
-    return this.normalizeList(result);
+    // page/pageSize are required query params on this endpoint - omitting
+    // them is a 400, not "no sites" (confirmed live against the controller).
+    const result = await this.authedRequest<
+      RawGridRecord[] | { list: RawGridRecord[] } | { data: RawGridRecord[] }
+    >(OMADA_PATHS.sites(this.cfg.omadaId), { query: { page: 1, pageSize: 1000 } });
+    return this.normalizeList(result).map((raw) => ({
+      id: String(raw.siteId ?? raw.id ?? ''),
+      name: String(raw.name ?? ''),
+      type: raw.type !== undefined ? String(raw.type) : undefined,
+    }));
   }
 
   /** List clients connected to a given site. */
@@ -102,13 +115,20 @@ export class OmadaClient implements IOmadaClient {
   }
 
   /**
-   * Omada paginated endpoints sometimes return `{ list: [...] }` and sometimes a
-   * bare array depending on controller version. Normalise to an array.
+   * Omada grid/list endpoints return one of: a bare array, `{ list: [...] }`,
+   * or (confirmed live - `OperationResponseGridVO*` in the spec, e.g. the
+   * sites listing) `{ totalRows, currentPage, currentSize, data: [...] }`.
+   * Normalise all three to a plain array.
    */
-  private normalizeList<T>(value: T[] | { list: T[] } | undefined | null): T[] {
+  private normalizeList<T>(
+    value: T[] | { list: T[] } | { data: T[] } | undefined | null,
+  ): T[] {
     if (Array.isArray(value)) return value;
     if (value && Array.isArray((value as { list?: T[] }).list)) {
       return (value as { list: T[] }).list;
+    }
+    if (value && Array.isArray((value as { data?: T[] }).data)) {
+      return (value as { data: T[] }).data;
     }
     return [];
   }
